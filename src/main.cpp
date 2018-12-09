@@ -5,7 +5,7 @@
 // #define RBL_NANOV2
 #define PROMICRO
 
-#define SERIAL_MONITOR
+// #define SERIAL_MONITOR
 
 /******************** FFT Setting ***********************/
  arduinoFFT FFT = arduinoFFT(); /* Create FFT object */
@@ -15,13 +15,14 @@ const uint16_t samples = 128;
 #ifdef RBL_NANOV2
   const double samplingFrequency = 10000; //Hz, RBL Nano v2 can theoretically catch up 200k samples per sec 
 #elif defined(PROMICRO)
-  const double samplingFrequency = 4000; //Hz, Theoretically Sparkfun ProMicro can only catch up 1000 samples/s due to ADC spec, however it was possible to hear above 1kHz (with 5k sps)
+  const double samplingFrequency = 5000; //Hz, Theoretically Sparkfun ProMicro can only catch up 1000 samples/s due to ADC spec, however it was possible to hear above 1kHz (with 5k sps)
 #else
   const double samplingFrequency = 1000; //Hz, normally this should be up to 1k sps
 #endif
 unsigned int sampling_period_us;
 unsigned long microseconds;
 #define VOLUME_THRESHOLD 30
+#define LOWCUTFREQ 340 //Hz Alt recorder's lowest sound F4 is 349 Hz
 
 /*
 These are the input and output vectors
@@ -105,8 +106,8 @@ void loop() {
     // FFT.ComplexToMagnitude(vReal, vImag, samples); /* Compute magnitudes */
     x = FFT.MajorPeak(vReal, samples, samplingFrequency);
     // remap frequency to hue value
-    color = map((long)x, 0, samplingFrequency / 2, 0, 0xFF);
-    ledBrightness = 0xFF;
+    color = map((long)x, LOWCUTFREQ, samplingFrequency / 2, 0, 0xFF);
+    ledBrightness = map(volume, 0, 0x3FF, 0x8F, 0xFF);
   }
   leds[0] = CHSV(color, 0xFF, ledBrightness);
   FastLED.show();
