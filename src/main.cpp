@@ -38,9 +38,9 @@ double vImag[samples];
 /******************** LED strip setting ***********************/
 #define LED_PIN 2
 #define NUM_LEDS 8
-#define BRIGHTNESS 10
 #define LED_TYPE NEOPIXEL
 #define COLOR_ORDER GRB
+#define LED_MAX_BRIGHTNESS 0xFF
 #define LED_MIN_BRIGHTNESS 0x64
 
 #define LOOP_DELAY 10
@@ -54,7 +54,7 @@ void setup() {
     Serial.begin(9600);
   #endif
   FastLED.addLeds<LED_TYPE, LED_PIN>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
-  FastLED.setBrightness(BRIGHTNESS);
+  FastLED.setBrightness(LED_MAX_BRIGHTNESS);
 }
 
 uint16_t sampling(){
