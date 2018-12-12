@@ -21,7 +21,7 @@ const uint16_t samples = 128;
 #endif
 unsigned int sampling_period_us;
 unsigned long microseconds;
-#define VOLUME_THRESHOLD 30
+#define VOLUME_THRESHOLD 10
 #define LOWCUTFREQ 340 //Hz Alt recorder's lowest sound F4 is 349 Hz
 
 /*
@@ -37,10 +37,11 @@ double vImag[samples];
 #endif
 /******************** LED strip setting ***********************/
 #define LED_PIN 2
-#define NUM_LEDS 1
+#define NUM_LEDS 8
 #define BRIGHTNESS 10
 #define LED_TYPE NEOPIXEL
 #define COLOR_ORDER GRB
+#define LED_MIN_BRIGHTNESS 0x64
 
 #define LOOP_DELAY 10
 CRGB leds[NUM_LEDS];
@@ -62,18 +63,23 @@ uint16_t sampling(){
   uint16_t maxRead = 0x1FF;
   uint16_t minRead = 0x1FF;
 
-  for(int i=0; i<samples; i++)
+  for(uint16_t i=0; i<samples; i++)
   {
       vReal[i] = analogRead(AUDIO_IN);
-      //get max and min volume
-      if(vReal[i] > maxRead){maxRead = vReal[i];}
-      if(vReal[i] < minRead){minRead = vReal[i];}
       vImag[i] = 0;
       while(micros() - microseconds < sampling_period_us){
         //empty loop
       }
       microseconds += sampling_period_us;
   }
+  // Loop for extracting max and min
+  for(uint16_t i=0; i<samples; i++)
+  {
+    //get max and min volume
+    if(vReal[i] > maxRead){maxRead = vReal[i];}
+    if(vReal[i] < minRead){minRead = vReal[i];}
+  }
+
   return maxRead - minRead;
 }
 
@@ -88,12 +94,12 @@ void loop() {
   /*SAMPLING*/
   uint16_t volume = sampling();
 
-  #ifdef SERIAL_MONITOR
-    Serial.print(volume);
-    Serial.print(" ");
-    Serial.print(millis() - timeStamp);
-    Serial.print(" ");
-  #endif
+  // #ifdef SERIAL_MONITOR
+  //   Serial.print(volume);
+  //   Serial.print(" ");
+  //   Serial.print(millis() - timeStamp);
+  //   Serial.print(" ");
+  // #endif
   digitalWrite(LED_BUILTIN, LOW);
 
   uint8_t color = 0;
@@ -107,17 +113,31 @@ void loop() {
     x = FFT.MajorPeak(vReal, samples, samplingFrequency);
     // remap frequency to hue value
     color = map((long)x, LOWCUTFREQ, samplingFrequency / 2, 0, 0xFF);
-    ledBrightness = map(volume, 0, 0x3FF, 0x8F, 0xFF);
+    ledBrightness = map(volume, 0, 0x3FF, LED_MIN_BRIGHTNESS, 0xFF);
   }
-  leds[0] = CHSV(color, 0xFF, ledBrightness);
+  uint8_t ledLength = map(volume, 0, 0x3FF, 0, 7) + 1;
+  for(uint8_t i = 0; i < NUM_LEDS; i ++){
+    if(i < ledLength){
+      leds[i] = CHSV(color, 0xFF, ledBrightness);
+    }
+    else{
+      leds[i] = CHSV(color, 0xFF, 0);
+    }
+
+  }
   FastLED.show();
 
   #ifdef SERIAL_MONITOR
-    Serial.print((long)x);   //Print out what frequency is the most dominant.
+    Serial.print(volume);
     Serial.print(" ");
-    Serial.print(color); //Print out what frequency is the most dominant.
+    Serial.print(ledBrightness);
     Serial.print(" ");
-    Serial.println(millis() - timeStamp);
+    Serial.println(ledLength);
+    // Serial.print((long)x);   //Print out what frequency is the most dominant.
+    // Serial.print(" ");
+    // Serial.print(color); //Print out what frequency is the most dominant.
+    // Serial.print(" ");
+    // Serial.println(millis() - timeStamp);
   #endif
   delay(LOOP_DELAY); /* Repeat after delay */
 }
