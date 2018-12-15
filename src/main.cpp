@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "arduinoFFT.h"
 #include "FastLED.h"
+#include "math.h"
 
 // #define RBL_NANOV2
 #define PROMICRO
@@ -21,7 +22,8 @@ const uint16_t samples = 128;
 #endif
 unsigned int sampling_period_us;
 unsigned long microseconds;
-#define VOLUME_THRESHOLD 10
+#define VOLUME_THRESHOLD 20
+#define MAX_VOLUME 60 //max input value: 0x3FF = 1023, in decibel (root-power quantity) 20 log(1023) ~= 60. *This is not accoustic decibel!
 #define LOWCUTFREQ 340 //Hz Alt recorder's lowest sound F4 is 349 Hz
 
 /*
@@ -83,6 +85,13 @@ uint16_t sampling(){
   return maxRead - minRead;
 }
 
+uint16_t toDecibel(uint16_t vol){
+  // for (uint16_t i = 0; i < samples; i ++){
+  //   vReal[i] = 20 * log10(vReal[i]);
+  // }
+  return 20 * log10(vol);
+}
+
 void loop() {
 
   digitalWrite(LED_BUILTIN, HIGH);
@@ -102,20 +111,27 @@ void loop() {
   // #endif
   digitalWrite(LED_BUILTIN, LOW);
 
+  volume = toDecibel(volume);
+
   uint8_t color = 0;
   double x = 0;
   uint8_t ledBrightness = 0;
+  uint8_t ledLength = 0;
   //avoid fft loop to turn off the led, if volume is too small
   if(volume >= VOLUME_THRESHOLD){
-    // FFT.Windowing(vReal, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);	/* Weigh data */
+    FFT.Windowing(vReal, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);	/* Weigh data */
     FFT.Compute(vReal, vImag, samples, FFT_FORWARD); /* Compute FFT */
-    // FFT.ComplexToMagnitude(vReal, vImag, samples); /* Compute magnitudes */
+    FFT.ComplexToMagnitude(vReal, vImag, samples); /* Compute magnitudes */
     x = FFT.MajorPeak(vReal, samples, samplingFrequency);
     // remap frequency to hue value
     color = map((long)x, LOWCUTFREQ, samplingFrequency / 2, 0, 0xFF);
-    ledBrightness = map(volume, 0, 0x3FF, LED_MIN_BRIGHTNESS, 0xFF);
+    ledBrightness = map(volume, VOLUME_THRESHOLD, MAX_VOLUME, LED_MIN_BRIGHTNESS, 0xFF);
+    ledLength = map(volume, VOLUME_THRESHOLD, MAX_VOLUME, 1, 8);
   }
-  uint8_t ledLength = map(volume, 0, 0x3FF, 0, 7) + 1;
+  else{
+    volume = 0;
+  }
+
   for(uint8_t i = 0; i < NUM_LEDS; i ++){
     if(i < ledLength){
       leds[i] = CHSV(color, 0xFF, ledBrightness);
@@ -130,14 +146,17 @@ void loop() {
   #ifdef SERIAL_MONITOR
     Serial.print(volume);
     Serial.print(" ");
-    Serial.print(ledBrightness);
+    // Serial.print(" ");
+    // Serial.print(ledBrightness);
     Serial.print(" ");
-    Serial.println(ledLength);
-    // Serial.print((long)x);   //Print out what frequency is the most dominant.
-    // Serial.print(" ");
-    // Serial.print(color); //Print out what frequency is the most dominant.
-    // Serial.print(" ");
-    // Serial.println(millis() - timeStamp);
+    Serial.print(ledLength);
+    Serial.print(" ");
+    Serial.print((long)x);   //Print out what frequency is the most dominant.
+    Serial.print(" ");
+    // Serial.print(color);
+    Serial.print(millis() - timeStamp);
+    Serial.println("");
   #endif
+
   delay(LOOP_DELAY); /* Repeat after delay */
 }
