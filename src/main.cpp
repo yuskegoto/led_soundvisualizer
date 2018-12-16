@@ -12,7 +12,7 @@
  arduinoFFT FFT = arduinoFFT(); /* Create FFT object */
 
 /* These values can be changed in order to evaluate the functions */
-const uint16_t samples = 128;
+const uint16_t samples = 64;
 #ifdef RBL_NANOV2
   const double samplingFrequency = 10000; //Hz, RBL Nano v2 can theoretically catch up 200k samples per sec 
 #elif defined(PROMICRO)
@@ -123,8 +123,15 @@ void loop() {
     FFT.Compute(vReal, vImag, samples, FFT_FORWARD); /* Compute FFT */
     FFT.ComplexToMagnitude(vReal, vImag, samples); /* Compute magnitudes */
     x = FFT.MajorPeak(vReal, samples, samplingFrequency);
+  
     // remap frequency to hue value
     color = map((long)x, LOWCUTFREQ, samplingFrequency / 2, 0, 0xFF);
+    // color = map(0xFF - color, 0, 0xFF, 0, 0x9F) - 0x3F;//(blue at 345hz F3,1184hz to red E4)
+    // color = 0xFF - color;
+    // E4 red 255, F4 blue 154
+  
+    // invert color from red - blue to blue - red, adjust for requested band
+    color = map(255 - color, 0, 0xFF, 0, 380) +26;//(blue(around 155) at 345hz F3,1184hz to red (0) E4)
     ledBrightness = map(volume, VOLUME_THRESHOLD, MAX_VOLUME, LED_MIN_BRIGHTNESS, 0xFF);
     ledLength = map(volume, VOLUME_THRESHOLD, MAX_VOLUME, 1, 8);
   }
@@ -144,17 +151,17 @@ void loop() {
   FastLED.show();
 
   #ifdef SERIAL_MONITOR
-    Serial.print(volume);
-    Serial.print(" ");
+    // Serial.print(volume);
+    // Serial.print(" ");
     // Serial.print(" ");
     // Serial.print(ledBrightness);
-    Serial.print(" ");
-    Serial.print(ledLength);
-    Serial.print(" ");
-    Serial.print((long)x);   //Print out what frequency is the most dominant.
-    Serial.print(" ");
-    // Serial.print(color);
-    Serial.print(millis() - timeStamp);
+    // Serial.print(" ");
+    // Serial.print(ledLength);
+    // Serial.print(" ");
+    // Serial.print((long)x);   //Print out what frequency is the most dominant.
+    // Serial.print(" ");
+    Serial.print(color);
+    // Serial.print(millis() - timeStamp);
     Serial.println("");
   #endif
 
