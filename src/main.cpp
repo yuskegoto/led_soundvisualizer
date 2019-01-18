@@ -4,22 +4,31 @@
 #include "math.h"
 
 // #define RBL_NANOV2
-#define PROMICRO
+//#define PROMICRO
+#define TRINKETM0
 
-// #define SERIAL_MONITOR
+#ifdef TRINKETM0
+  #include <avdweb_AnalogReadFast.h>
+#endif
+
+#define SERIAL_MONITOR
+#define LED_INDICATOR
 
 /******************** FFT Setting ***********************/
  arduinoFFT FFT = arduinoFFT(); /* Create FFT object */
 
 /* These values can be changed in order to evaluate the functions */
-const uint16_t samples = 64;
+const uint16_t SAMPLES = 128;
 #ifdef RBL_NANOV2
   const double samplingFrequency = 10000; //Hz, RBL Nano v2 can theoretically catch up 200k samples per sec 
 #elif defined(PROMICRO)
   const double samplingFrequency = 5000; //Hz, Theoretically Sparkfun ProMicro can only catch up 1000 samples/s due to ADC spec, however it was possible to hear above 1kHz (with 5k sps)
+#elif defined(TRINKETM0)
+  const double samplingFrequency = 10000; //Hz, Theoretically Sparkfun ProMicro can only catch up 1000 samples/s due to ADC spec, however it was possible to hear above 1kHz (with 5k sps)
 #else
   const double samplingFrequency = 1000; //Hz, normally this should be up to 1k sps
 #endif
+
 unsigned int sampling_period_us;
 unsigned long microseconds;
 #define VOLUME_THRESHOLD 20
@@ -30,15 +39,21 @@ unsigned long microseconds;
 These are the input and output vectors
 Input vectors receive computed results from FFT
 */
-double vReal[samples];
-double vImag[samples];
+double vReal[SAMPLES];
+double vImag[SAMPLES];
+
+/******************** Pin config ***********************/
 #ifdef RBL_NANOV2
   #define AUDIO_IN A4
+#elif defined TRINKETM0
+  #define AUDIO_IN A0
 #else
   #define AUDIO_IN A0
 #endif
-/******************** LED strip setting ***********************/
 #define LED_PIN 2
+
+/******************** LED strip setting ***********************/
+
 #define NUM_LEDS 8
 #define LED_TYPE NEOPIXEL
 #define COLOR_ORDER GRB
@@ -51,7 +66,10 @@ CRGB leds[NUM_LEDS];
 
 void setup() {
   sampling_period_us = round(1000000*(1.0/samplingFrequency));
-  pinMode(LED_BUILTIN, OUTPUT);   // set up led indication
+  #ifdef LED_INDICATOR
+    pinMode(LED_BUILTIN, OUTPUT);   // set up led indication
+  #endif
+  
   #ifdef SERIAL_MONITOR
     Serial.begin(9600);
   #endif
@@ -65,17 +83,22 @@ uint16_t sampling(){
   uint16_t maxRead = 0x1FF;
   uint16_t minRead = 0x1FF;
 
-  for(uint16_t i=0; i<samples; i++)
+  for(uint16_t i=0; i<SAMPLES; i++)
   {
+    #ifdef TRINKETM0
+      vReal[i] = analogReadFast(AUDIO_IN);
+    #else
       vReal[i] = analogRead(AUDIO_IN);
-      vImag[i] = 0;
-      while(micros() - microseconds < sampling_period_us){
-        //empty loop
-      }
-      microseconds += sampling_period_us;
+    #endif
+
+    vImag[i] = 0;
+    while(micros() - microseconds < sampling_period_us){
+      //empty loop
+    }
+    microseconds += sampling_period_us;
   }
   // Loop for extracting max and min
-  for(uint16_t i=0; i<samples; i++)
+  for(uint16_t i=0; i<SAMPLES; i++)
   {
     //get max and min volume
     if(vReal[i] > maxRead){maxRead = vReal[i];}
@@ -86,15 +109,16 @@ uint16_t sampling(){
 }
 
 uint16_t toDecibel(uint16_t vol){
-  // for (uint16_t i = 0; i < samples; i ++){
+  // for (uint16_t i = 0; i < SAMPLES; i ++){
   //   vReal[i] = 20 * log10(vReal[i]);
   // }
   return 20 * log10(vol);
 }
 
 void loop() {
-
+  #ifdef LED_INDICATOR
   digitalWrite(LED_BUILTIN, HIGH);
+  #endif
 
   #ifdef SERIAL_MONITOR
     uint32_t timeStamp = millis();
@@ -106,26 +130,29 @@ void loop() {
   // #ifdef SERIAL_MONITOR
   //   Serial.print(volume);
   //   Serial.print(" ");
-  //   Serial.print(millis() - timeStamp);
-  //   Serial.print(" ");
+    Serial.print(millis() - timeStamp);
+    Serial.print(" ");
   // #endif
+
+  #ifdef LED_INDICATOR
   digitalWrite(LED_BUILTIN, LOW);
+  #endif
 
   volume = toDecibel(volume);
 
   uint8_t color = 0;
-  double x = 0;
+  double f = 0;
   uint8_t ledBrightness = 0;
   uint8_t ledLength = 0;
   //avoid fft loop to turn off the led, if volume is too small
   if(volume >= VOLUME_THRESHOLD){
-    FFT.Windowing(vReal, samples, FFT_WIN_TYP_HAMMING, FFT_FORWARD);	/* Weigh data */
-    FFT.Compute(vReal, vImag, samples, FFT_FORWARD); /* Compute FFT */
-    FFT.ComplexToMagnitude(vReal, vImag, samples); /* Compute magnitudes */
-    x = FFT.MajorPeak(vReal, samples, samplingFrequency);
+    FFT.Windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);	/* Weigh data */
+    FFT.Compute(vReal, vImag, SAMPLES, FFT_FORWARD); /* Compute FFT */
+    FFT.ComplexToMagnitude(vReal, vImag, SAMPLES); /* Compute magnitudes */
+    f = FFT.MajorPeak(vReal, SAMPLES, samplingFrequency);
   
     // remap frequency to hue value
-    color = map((long)x, LOWCUTFREQ, samplingFrequency / 2, 0, 0xFF);
+    color = map((long)f, LOWCUTFREQ, samplingFrequency / 2, 0, 0xFF);
     // color = map(0xFF - color, 0, 0xFF, 0, 0x9F) - 0x3F;//(blue at 345hz F3,1184hz to red E4)
     // color = 0xFF - color;
     // E4 red 255, F4 blue 154
@@ -158,10 +185,10 @@ void loop() {
     // Serial.print(" ");
     // Serial.print(ledLength);
     // Serial.print(" ");
-    // Serial.print((long)x);   //Print out what frequency is the most dominant.
-    // Serial.print(" ");
-    Serial.print(color);
-    // Serial.print(millis() - timeStamp);
+    Serial.print((long)f);   //Print out what frequency is the most dominant.
+    Serial.print(" ");
+    // Serial.print(color);
+    Serial.print(millis() - timeStamp);
     Serial.println("");
   #endif
 
