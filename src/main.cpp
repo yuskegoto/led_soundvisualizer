@@ -11,8 +11,8 @@
   #include <avdweb_AnalogReadFast.h>
 #endif
 
-#define SERIAL_MONITOR
-#define LED_INDICATOR
+// #define SERIAL_MONITOR
+// #define LED_INDICATOR
 
 /******************** FFT Setting ***********************/
  arduinoFFT FFT = arduinoFFT(); /* Create FFT object */
@@ -24,7 +24,7 @@ const uint16_t SAMPLES = 128;
 #elif defined(PROMICRO)
   const double samplingFrequency = 5000; //Hz, Theoretically Sparkfun ProMicro can only catch up 1000 samples/s due to ADC spec, however it was possible to hear above 1kHz (with 5k sps)
 #elif defined(TRINKETM0)
-  const double samplingFrequency = 10000; //Hz, Theoretically Sparkfun ProMicro can only catch up 1000 samples/s due to ADC spec, however it was possible to hear above 1kHz (with 5k sps)
+  const double samplingFrequency = 10000; 
 #else
   const double samplingFrequency = 1000; //Hz, normally this should be up to 1k sps
 #endif
@@ -60,7 +60,7 @@ double vImag[SAMPLES];
 #define LED_MAX_BRIGHTNESS 0xFF
 #define LED_MIN_BRIGHTNESS 0x64
 
-#define LOOP_DELAY 10
+#define LOOP_DELAY 0
 CRGB leds[NUM_LEDS];
 /****************************************************************/
 
@@ -104,7 +104,6 @@ uint16_t sampling(){
     if(vReal[i] > maxRead){maxRead = vReal[i];}
     if(vReal[i] < minRead){minRead = vReal[i];}
   }
-
   return maxRead - minRead;
 }
 
@@ -127,12 +126,12 @@ void loop() {
   /*SAMPLING*/
   uint16_t volume = sampling();
 
-  // #ifdef SERIAL_MONITOR
+  #ifdef SERIAL_MONITOR
   //   Serial.print(volume);
   //   Serial.print(" ");
     Serial.print(millis() - timeStamp);
     Serial.print(" ");
-  // #endif
+  #endif
 
   #ifdef LED_INDICATOR
   digitalWrite(LED_BUILTIN, LOW);
@@ -152,13 +151,19 @@ void loop() {
     f = FFT.MajorPeak(vReal, SAMPLES, samplingFrequency);
   
     // remap frequency to hue value
-    color = map((long)f, LOWCUTFREQ, samplingFrequency / 2, 0, 0xFF);
     // color = map(0xFF - color, 0, 0xFF, 0, 0x9F) - 0x3F;//(blue at 345hz F3,1184hz to red E4)
     // color = 0xFF - color;
     // E4 red 255, F4 blue 154
   
     // invert color from red - blue to blue - red, adjust for requested band
-    color = map(255 - color, 0, 0xFF, 0, 380) +26;//(blue(around 155) at 345hz F3,1184hz to red (0) E4)
+    #ifdef TRINKETM0
+    color = 0xFF - (uint8_t)(map((long)f, LOWCUTFREQ, samplingFrequency / 2, 0, 850)) + 155;
+    // color = map(255 - color, 0, 0xFF, 0, 850) + 73; //(blue(around 155) at 345hz F3,1184hz to red (0) E4)
+#else
+    color = map((long)f, LOWCUTFREQ, samplingFrequency / 2, 0, 0xFF);
+    color = map(255 - color, 0, 0xFF, 0, 380) + 26; //(blue(around 155) at 345hz F3,1184hz to red (0) E4)
+    #endif
+
     ledBrightness = map(volume, VOLUME_THRESHOLD, MAX_VOLUME, LED_MIN_BRIGHTNESS, 0xFF);
     ledLength = map(volume, VOLUME_THRESHOLD, MAX_VOLUME, 1, 8);
   }
@@ -185,10 +190,10 @@ void loop() {
     // Serial.print(" ");
     // Serial.print(ledLength);
     // Serial.print(" ");
-    Serial.print((long)f);   //Print out what frequency is the most dominant.
-    Serial.print(" ");
-    // Serial.print(color);
-    Serial.print(millis() - timeStamp);
+    // Serial.print((long)f);   //Print out what frequency is the most dominant.
+    // Serial.print(" ");
+    Serial.print(color);
+    // Serial.print(millis() - timeStamp);
     Serial.println("");
   #endif
 
