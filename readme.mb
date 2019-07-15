@@ -1,3 +1,35 @@
-Info for trinekt M0
+Sound visualizer program
+========================
+
+# 開発環境とプラットフォーム / Developping environment and platform
+* [platformio](https://platformio.org/) 及び [Arduion](https://www.arduino.cc/) 環境にて開発 / [platformio](https://platformio.org/) with [Arduion](https://www.arduino.cc/) environemnt
+* プログラムは当初Arduino Unoでテストし、その後BLE Nano V2およびTrinket M0に移植 / The program was first written for Arduino Uno, then modified for Redbear Lab's BLE nano v2, and Adafruit's Trinekt M0
+
+# ハードウェア構成
+## 現在のAdafruit Trinket M0を使ったバージョン
+* [Adafruit Trinket M0]9(https://www.switch-science.com/catalog/3535/)
+* [ADMP401搭載MEMSマイクモジュール](https://www.switch-science.com/catalog/419/)
+* [Adafruit Pro Trinketバッテリーモジュール](https://www.switch-science.com/catalog/2176/) 
+* [リチウムイオンポリマー電池110mAh](https://www.switch-science.com/catalog/3166/)
+* [フルカラーシリアルLEDテープ](https://www.switch-science.com/catalog/1400/)
+## Redbear Lab製のBLE Nano V2は現在生産中止
+* [RBL BLE Nano V2](https://www.switch-science.com/catalog/3444/)
+
+## Info for trinekt M0
 Pin out
 https://learn.adafruit.com/assets/49778
+
+# Programming References
+## Random fft sample for arduino and mbed
+https://os.mbed.com/users/Suky/notebook/audio-spectrum-analyzer-fft-32-points-and-lcd-20x4/
+https://community.platformio.org/t/ble-nano-2-mbed-platformio-wont-run/4355/6
+
+## BLE nano v2 uploading issue
+https://community.platformio.org/t/redbear-ble-nano-v2-upload-failed/3186/3
+
+## Using FastLED lib
+## how to set hsv colour
+https://github.com/FastLED/FastLED/wiki/Controlling-leds
+
+## Color setting
+blue(around 155) at 345hz F3,1184hz to red (0) E4
